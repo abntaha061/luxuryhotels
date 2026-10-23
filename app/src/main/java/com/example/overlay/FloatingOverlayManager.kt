@@ -19,8 +19,8 @@ import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * Manages floating overlay windows:
- * 1. Pass-Through Translation Bubble (FLAG_NOT_TOUCHABLE so it never blocks video touches)
+ * Manages floating overlay windows with bounding box stabilization:
+ * 1. Pass-Through Translation Bubble with vertical jitter damping (stops random jumping)
  * 2. Tiny Draggable Floating Edge Button (Single tap to Pause/Resume, Long press to Close)
  */
 class FloatingOverlayManager(
@@ -34,11 +34,16 @@ class FloatingOverlayManager(
 
     private var bubbleView: View? = null
     private var toggleView: View? = null
-
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var toggleParams: WindowManager.LayoutParams? = null
 
     private var isManuallyHidden = false
+
+    // Bounding Box Stabilization to eliminate jitter and erratic jumping
+    private var lastStableX: Int? = null
+    private var lastStableY: Int? = null
+    private val jitterThresholdXPx = 24
+    private val jitterThresholdYPx = 28
 
     fun showOverlays() {
         val windowType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -50,7 +55,7 @@ class FloatingOverlayManager(
 
         val inflater = LayoutInflater.from(context)
 
-        // 1. Pass-Through Translation Bubble (Zero interference with video touches)
+        // 1. Pass-Through Translation Bubble (Zero interference with video player touches)
         bubbleView = inflater.inflate(R.layout.layout_translation_bubble, null)
         bubbleParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -64,7 +69,7 @@ class FloatingOverlayManager(
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = screenWidth / 4
-            y = (screenHeight * 0.75).toInt()
+            y = (screenHeight * 0.78).toInt()
         }
 
         bubbleView?.visibility = View.GONE // Silent until English subtitles appear
@@ -124,7 +129,6 @@ class FloatingOverlayManager(
                     }
                     MotionEvent.ACTION_UP -> {
                         if (!isDragging) {
-                            // Single tap: Toggle Pause/Resume
                             onTogglePause()
                         }
                         return true
@@ -142,7 +146,8 @@ class FloatingOverlayManager(
     }
 
     /**
-     * Dynamically positions the rounded rectangular floating bubble directly below the English text.
+     * Positions the rounded rectangular floating bubble directly below the English text
+     * with hysteresis stabilization to stop random vertical jumping.
      */
     fun positionBubbleBelowText(
         detectedBox: Rect,
@@ -163,7 +168,6 @@ class FloatingOverlayManager(
         // Map bitmap coordinates to display screen metrics
         val scaleX = screenWidth.toFloat() / max(1, bitmapWidth).toFloat()
         val scaleY = screenHeight.toFloat() / max(1, bitmapHeight).toFloat()
-
         val screenBox = Rect(
             (detectedBox.left * scaleX).toInt(),
             (detectedBox.top * scaleY).toInt(),
@@ -179,26 +183,45 @@ class FloatingOverlayManager(
         val bubbleW = view.measuredWidth.coerceAtLeast(180)
         val bubbleH = view.measuredHeight.coerceAtLeast(60)
 
-        // Center horizontally with detected English text
-        val targetX = (screenBox.centerX() - (bubbleW / 2)).coerceIn(16, max(16, screenWidth - bubbleW - 16))
+        // Center horizontally with detected subtitle text
+        val rawTargetX = (screenBox.centerX() - (bubbleW / 2)).coerceIn(16, max(16, screenWidth - bubbleW - 16))
 
-        // Position directly below the English text with an 8dp vertical offset (around 18-20px)
+        // Position directly below text with 8dp offset
         val verticalOffsetPx = (8 * context.resources.displayMetrics.density).toInt()
-        var targetY = screenBox.bottom + verticalOffsetPx
+        var rawTargetY = screenBox.bottom + verticalOffsetPx
 
-        // If too close to the bottom navigation bar or screen edge, place directly above the English text
-        if (targetY + bubbleH > screenHeight - 80) {
-            targetY = max(80, screenBox.top - bubbleH - verticalOffsetPx)
+        // Flip above if too close to navigation bar or screen bottom
+        if (rawTargetY + bubbleH > screenHeight - 60) {
+            rawTargetY = max(80, screenBox.top - bubbleH - verticalOffsetPx)
         }
 
-        params.x = targetX
-        params.y = targetY
+        // Bounding Box Stabilization: Damping small pixel fluctuations to stop random jumping
+        val stableX = if (lastStableX != null && abs(rawTargetX - lastStableX!!) <= jitterThresholdXPx) {
+            lastStableX!!
+        } else {
+            lastStableX = rawTargetX
+            rawTargetX
+        }
+
+        val stableY = if (lastStableY != null && abs(rawTargetY - lastStableY!!) <= jitterThresholdYPx) {
+            lastStableY!!
+        } else {
+            lastStableY = rawTargetY
+            rawTargetY
+        }
+
+        val needsLayoutUpdate = params.x != stableX || params.y != stableY || view.visibility != View.VISIBLE
+
+        params.x = stableX
+        params.y = stableY
 
         if (!isManuallyHidden) {
             view.visibility = View.VISIBLE
         }
 
-        windowManager.updateViewLayout(view, params)
+        if (needsLayoutUpdate) {
+            windowManager.updateViewLayout(view, params)
+        }
     }
 
     /**
@@ -206,6 +229,8 @@ class FloatingOverlayManager(
      */
     fun hideBubble() {
         bubbleView?.visibility = View.GONE
+        lastStableX = null
+        lastStableY = null
     }
 
     fun setPausedUIState(isPaused: Boolean) {

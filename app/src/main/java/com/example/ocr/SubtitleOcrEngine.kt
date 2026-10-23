@@ -21,15 +21,17 @@ data class DetectedSubtitle(
 
 /**
  * Optical Character Recognition (OCR) Engine powered by Google ML Kit.
- * Extracts dialogue sentences and calculates their bounding boxes for dynamic overlay positioning.
+ * Implements STRICT spatial ROI filtering (bottom 35% of screen, center-aligned)
+ * to ignore video watermarks, player headers, and corner timecodes.
  */
 class SubtitleOcrEngine {
 
     private val recognizer: TextRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
     /**
-     * Scans the full-screen bitmap, filters out UI noise and watermarks,
-     * and detects the primary English subtitle sentence along with its bounding box.
+     * Scans the full-screen bitmap and strictly extracts ONLY subtitles
+     * in the bottom 35% of the screen, discarding top 65% watermarks,
+     * timecodes, and edge icons.
      */
     suspend fun detectSubtitleSentence(
         bitmap: Bitmap,
@@ -48,39 +50,50 @@ class SubtitleOcrEngine {
                 return@withContext Result.success(null)
             }
 
+            // 1. STRICT ROI: ONLY accept text in the bottom 35% of the screen (top >= 65% of screen height)
+            val roiTopY = (screenHeight * 0.65f).toInt()
+            val navBarBottomCutoff = screenHeight - 36
+
+            // Subtitle horizontal center-alignment constraints
+            val centerMinX = (screenWidth * 0.12f).toInt()
+            val centerMaxX = (screenWidth * 0.88f).toInt()
+
             var bestCandidate: DetectedSubtitle? = null
             var bestScore = -1.0
 
             for (block in visionText.textBlocks) {
                 val box = block.boundingBox ?: continue
 
-                // 1. Filter out top status bar and extreme bottom nav bar
-                if (box.top < 80 || box.bottom > screenHeight - 50) continue
+                // STRICT ROI CHECK: Completely ignore any text in the top 65% of the screen!
+                if (box.top < roiTopY) {
+                    continue
+                }
 
-                // 2. Clean and filter raw text
+                // Ignore extreme bottom nav bar / gesture pill
+                if (box.bottom > navBarBottomCutoff) {
+                    continue
+                }
+
+                // Ignore text pushed to the extreme left/right margins (timecodes, player controls, share icons)
+                if (box.centerX() < centerMinX || box.centerX() > centerMaxX) {
+                    continue
+                }
+
+                // Must overlap with the central region of the screen
+                if (box.right < screenWidth * 0.20f || box.left > screenWidth * 0.80f) {
+                    continue
+                }
+
+                // Clean and apply text filters (Arabic self-capture, timecodes, URLs, watermarks, word count)
                 val rawText = block.text.trim()
                 val cleaned = TextDeduplicator.cleanAndFilter(rawText) ?: continue
 
-                // 3. Filter noise: Must have at least 2 words (or dialogue quotation/punctuation)
-                val words = cleaned.split(Regex("\\s+")).filter { it.isNotBlank() }
-                val isDialogueFormat = cleaned.startsWith("-") || cleaned.startsWith("\"") ||
-                        cleaned.endsWith("?") || cleaned.endsWith("!")
-                if (words.size < 2 && !isDialogueFormat) {
-                    continue
-                }
+                // Score candidate: favor lower placement and wider centered bounding boxes (typical of subtitles)
+                val verticalScore = ((box.bottom - roiTopY).toDouble() / (screenHeight - roiTopY).toDouble()) * 100.0
+                val widthScore = (box.width().toDouble() / screenWidth.toDouble()) * 120.0
+                val wordScore = cleaned.split(Regex("\\s+")).size * 10.0
 
-                // 4. Subtitle scoring: Subtitles prominently appear in middle-to-lower portion of the screen
-                val centerYRatio = box.centerY().toDouble() / screenHeight.toDouble()
-                if (centerYRatio < 0.35) {
-                    // Less likely to be video subtitle if in top 35% of the screen
-                    continue
-                }
-
-                val verticalPositionScore = centerYRatio * 150.0 // Higher score for lower screen position
-                val widthScore = (box.width().toDouble() / screenWidth.toDouble()) * 100.0
-                val wordScore = words.size * 15.0
-
-                val totalScore = verticalPositionScore + widthScore + wordScore
+                val totalScore = verticalScore + widthScore + wordScore
 
                 if (totalScore > bestScore) {
                     bestScore = totalScore

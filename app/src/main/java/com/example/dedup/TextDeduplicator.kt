@@ -5,56 +5,97 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Smart Deduplication and Subtitle Filtering Engine.
- * Prevents UI flickering and redundant translation calls by comparing text similarity
- * and filtering out non-dialogue noise, URLs, timestamps, and watermarks.
+ * Strict Subtitle Filtering & Anti-Flicker Deduplication Engine.
+ * Implements aggressive noise, watermark, player timecode, and self-capture filters.
  */
 object TextDeduplicator {
 
     // Threshold above which text is considered unchanged (0.85 = 85% similarity)
     private const val SIMILARITY_THRESHOLD = 0.85
 
-    // RegEx patterns for common on-screen watermarks, URLs, and timestamps
+    // 1. Arabic Unicode regex to detect and reject app's own floating translated bubble (prevents self-capture loop)
+    private val ARABIC_REGEX = Regex("[\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]")
+
+    // 2. RegEx for player timecodes anywhere in string (e.g., "25:08", "01:25:08", "12:30 / 45:00", "-03:15")
+    private val TIMECODE_REGEX = Regex("(?i)(\\b\\d{1,2}:\\d{2}(:\\d{2})?\\b|\\d{1,2}:\\d{2}\\s*/\\s*\\d{1,2}:\\d{2})")
+
+    // 3. RegEx for URLs, domains, and watermarks
     private val URL_REGEX = Regex(
-        "(?i)\\b(https?://|www\\.|ftp://|[a-z0-9.-]+\\.(com|org|net|io|me|tv|cc|to|xxx|info|biz|ru|cn))\\b"
+        "(?i)\\b(https?://|www\\.|ftp://|[a-z0-9.-]+\\.(com|org|net|io|me|tv|cc|to|xxx|info|biz|ru|cn|gg|co|xyz))\\b"
     )
-    private val TIMESTAMP_REGEX = Regex("^(\\d{1,2}:)?\\d{2}:\\d{2}([,.]\\d{1,3})?$")
+
+    // 4. Common video release groups, codec tags, and subtitle site signatures
     private val WATERMARK_KEYWORDS = listOf(
         "subtitles by", "translated by", "ripped by", "yify", "yts",
-        "rarbg", "subscene", "addic7ed", "opensubtitles", "synced by"
+        "rarbg", "subscene", "addic7ed", "opensubtitles", "synced by",
+        "captioned by", "1080p", "720p", "bluray", "web-dl", "x264", "x265",
+        "subscribe", "like and share", "all rights reserved"
+    )
+
+    // 5. App's own UI text strings to prevent capturing app controls or toasts
+    private val APP_UI_KEYWORDS = listOf(
+        "subtranslate", "translating", "paused", "ready to translate",
+        "auto-tracking", "tap to launch", "live subtitle monitor",
+        "detected english", "arabic translation", "quick settings"
     )
 
     /**
-     * Cleans OCR raw text and filters out noise.
-     * Returns null if the text is empty or non-dialogue noise.
+     * Strictly cleans OCR raw text and filters out noise, watermarks, timecodes,
+     * self-captured Arabic text, and player UI artifacts.
+     * Returns null if the text should be rejected.
      */
     fun cleanAndFilter(rawText: String?): String? {
         if (rawText.isNullOrBlank()) return null
 
-        // 1. Remove stray OCR artifacts like pipes, tildes, carats
+        // 1. CRITICAL: Reject if text contains any Arabic characters (prevents self-capturing floating bubble)
+        if (ARABIC_REGEX.containsMatchIn(rawText)) {
+            return null
+        }
+
+        // 2. Reject if text contains player timecodes (e.g., "25:08")
+        if (TIMECODE_REGEX.containsMatchIn(rawText)) {
+            return null
+        }
+
+        // 3. Clean stray OCR artifacts
         var cleaned = rawText
             .replace(Regex("[|~^_\\[\\]{}<>]"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
 
-        // 2. Reject if too short (e.g. single character noise)
-        if (cleaned.length < 2) return null
+        // 4. Reject if too short
+        if (cleaned.length < 3) return null
 
-        // 3. Reject if text contains URLs or domains
+        // 5. Reject if text contains URLs or domain extensions
         if (URL_REGEX.containsMatchIn(cleaned)) return null
 
-        // 4. Reject if it is solely a timestamp (e.g. 00:14:22)
-        if (TIMESTAMP_REGEX.matches(cleaned)) return null
-
-        // 5. Reject if it contains common release group/ripper watermark signatures
         val lower = cleaned.lowercase(Locale.ROOT)
+
+        // 6. Reject watermarks & release groups
         for (keyword in WATERMARK_KEYWORDS) {
             if (lower.contains(keyword)) return null
         }
 
-        // 6. Must contain at least one letter
-        val hasLetter = cleaned.any { it.isLetter() }
-        if (!hasLetter) return null
+        // 7. Reject app's own UI text
+        for (uiWord in APP_UI_KEYWORDS) {
+            if (lower.contains(uiWord)) return null
+        }
+
+        // 8. Must contain at least one English alphabet letter
+        val letterCount = cleaned.count { it in 'a'..'z' || it in 'A'..'Z' }
+        if (letterCount < 2) return null
+
+        // 9. Reject if the block consists predominantly of numbers (e.g. player stats, fps, resolutions)
+        val digitCount = cleaned.count { it.isDigit() }
+        if (digitCount >= letterCount) return null
+
+        // 10. Must contain at least 2 words unless formatted as direct dialogue (quotes or dialogue dash)
+        val words = cleaned.split(Regex("\\s+")).filter { it.isNotBlank() }
+        val isDialogueFormat = cleaned.startsWith("-") || cleaned.startsWith("\"") ||
+                cleaned.endsWith("?") || cleaned.endsWith("!")
+        if (words.size < 2 && !isDialogueFormat) {
+            return null
+        }
 
         return cleaned
     }
