@@ -30,7 +30,7 @@ class TranslatorTileService : TileService() {
         // Observe service state changes and update the Quick Settings tile in real-time
         stateObserverJob?.cancel()
         stateObserverJob = serviceScope.launch {
-            ScreenTranslatorService.isRunning.collect {
+            AudioCaptureService.isRunning.collect {
                 updateTileState()
             }
         }
@@ -43,17 +43,17 @@ class TranslatorTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        val isRunning = ScreenTranslatorService.isRunning.value
+        val isRunning = AudioCaptureService.isRunning.value
 
         if (isRunning) {
             // Stop service directly from Quick Settings
-            val stopIntent = Intent(this, ScreenTranslatorService::class.java).apply {
-                action = ScreenTranslatorService.ACTION_STOP
+            val stopIntent = Intent(this, AudioCaptureService::class.java).apply {
+                action = AudioCaptureService.ACTION_STOP
             }
             startService(stopIntent)
             updateTileState(forcedRunning = false)
         } else {
-            // Screen capture requires user consent token via MediaProjection dialog
+            // Audio capture requires user consent token via MediaProjection dialog
             // Launch MainActivity to automatically trigger capture flow and collapse notification shade
             val launchIntent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -77,15 +77,15 @@ class TranslatorTileService : TileService() {
 
     private fun updateTileState(forcedRunning: Boolean? = null) {
         val tile = qsTile ?: return
-        val isRunning = forcedRunning ?: ScreenTranslatorService.isRunning.value
-        val isPaused = ScreenTranslatorService.isPaused.value
+        val isRunning = forcedRunning ?: AudioCaptureService.isRunning.value
+        val isPaused = AudioCaptureService.isPaused.value
 
         when {
             isRunning && !isPaused -> {
                 tile.state = Tile.STATE_ACTIVE
                 tile.label = "SubTranslate"
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    tile.subtitle = "Translating"
+                    tile.subtitle = "Translating Audio"
                 }
             }
             isRunning && isPaused -> {

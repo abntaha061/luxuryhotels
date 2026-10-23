@@ -1,6 +1,6 @@
 {
   "name": "SubTranslate",
-  "description": "Real-time on-screen English to Arabic subtitle translator using MediaProjection, ML Kit OCR, and floating overlay controls.",
+  "description": "Real-time English to Arabic subtitle and audio translator using AudioPlaybackCapture, Speech-to-Text, ML Kit on-device translation, and pass-through floating overlays.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

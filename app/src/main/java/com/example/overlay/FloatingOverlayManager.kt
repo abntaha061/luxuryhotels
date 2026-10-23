@@ -19,8 +19,8 @@ import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * Manages floating overlay windows with bounding box stabilization:
- * 1. Pass-Through Translation Bubble with vertical jitter damping (stops random jumping)
+ * Manages floating overlay windows for audio-based subtitle translation:
+ * 1. Center-Bottom Pass-Through Translation Bubble (FLAG_NOT_TOUCHABLE - zero interference with video controls)
  * 2. Tiny Draggable Floating Edge Button (Single tap to Pause/Resume, Long press to Close)
  */
 class FloatingOverlayManager(
@@ -39,7 +39,7 @@ class FloatingOverlayManager(
 
     private var isManuallyHidden = false
 
-    // Bounding Box Stabilization to eliminate jitter and erratic jumping
+    // Bounding Box Stabilization to eliminate jitter
     private var lastStableX: Int? = null
     private var lastStableY: Int? = null
     private val jitterThresholdXPx = 24
@@ -72,7 +72,7 @@ class FloatingOverlayManager(
             y = (screenHeight * 0.78).toInt()
         }
 
-        bubbleView?.visibility = View.GONE // Silent until English subtitles appear
+        bubbleView?.visibility = View.GONE // Silent until English speech is transcribed
         windowManager.addView(bubbleView, bubbleParams)
 
         // 2. Tiny Draggable Floating Edge Toggle Button
@@ -146,8 +146,38 @@ class FloatingOverlayManager(
     }
 
     /**
-     * Positions the rounded rectangular floating bubble directly below the English text
-     * with hysteresis stabilization to stop random vertical jumping.
+     * Renders translated speech subtitles in a centered bottom floating rectangular bubble.
+     * Perfect for speech-to-text audio translation.
+     */
+    fun displayCenterBottomSubtitle(arabicText: String, englishText: String) {
+        val view = bubbleView ?: return
+        val params = bubbleParams ?: return
+
+        val tvArabic = view.findViewById<TextView>(R.id.tvArabicSubtitle)
+        val tvEnglish = view.findViewById<TextView>(R.id.tvEnglishOriginal)
+
+        tvArabic?.text = arabicText
+        tvEnglish?.text = englishText
+
+        view.measure(
+            View.MeasureSpec.makeMeasureSpec((screenWidth * 0.90f).toInt(), View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val bubbleW = view.measuredWidth.coerceAtLeast(200)
+
+        // Center horizontally
+        params.x = ((screenWidth - bubbleW) / 2).coerceIn(16, max(16, screenWidth - bubbleW - 16))
+        params.y = (screenHeight * 0.78).toInt()
+
+        if (!isManuallyHidden) {
+            view.visibility = View.VISIBLE
+        }
+
+        windowManager.updateViewLayout(view, params)
+    }
+
+    /**
+     * Dynamically positions the rounded rectangular floating bubble directly below detected box.
      */
     fun positionBubbleBelowText(
         detectedBox: Rect,
@@ -165,7 +195,6 @@ class FloatingOverlayManager(
         tvArabic?.text = arabicText
         tvEnglish?.text = englishText
 
-        // Map bitmap coordinates to display screen metrics
         val scaleX = screenWidth.toFloat() / max(1, bitmapWidth).toFloat()
         val scaleY = screenHeight.toFloat() / max(1, bitmapHeight).toFloat()
         val screenBox = Rect(
@@ -175,7 +204,6 @@ class FloatingOverlayManager(
             (detectedBox.bottom * scaleY).toInt()
         )
 
-        // Measure bubble dimensions
         view.measure(
             View.MeasureSpec.makeMeasureSpec(screenWidth - 48, View.MeasureSpec.AT_MOST),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -183,19 +211,14 @@ class FloatingOverlayManager(
         val bubbleW = view.measuredWidth.coerceAtLeast(180)
         val bubbleH = view.measuredHeight.coerceAtLeast(60)
 
-        // Center horizontally with detected subtitle text
         val rawTargetX = (screenBox.centerX() - (bubbleW / 2)).coerceIn(16, max(16, screenWidth - bubbleW - 16))
-
-        // Position directly below text with 8dp offset
         val verticalOffsetPx = (8 * context.resources.displayMetrics.density).toInt()
         var rawTargetY = screenBox.bottom + verticalOffsetPx
 
-        // Flip above if too close to navigation bar or screen bottom
         if (rawTargetY + bubbleH > screenHeight - 60) {
             rawTargetY = max(80, screenBox.top - bubbleH - verticalOffsetPx)
         }
 
-        // Bounding Box Stabilization: Damping small pixel fluctuations to stop random jumping
         val stableX = if (lastStableX != null && abs(rawTargetX - lastStableX!!) <= jitterThresholdXPx) {
             lastStableX!!
         } else {
@@ -210,8 +233,6 @@ class FloatingOverlayManager(
             rawTargetY
         }
 
-        val needsLayoutUpdate = params.x != stableX || params.y != stableY || view.visibility != View.VISIBLE
-
         params.x = stableX
         params.y = stableY
 
@@ -219,13 +240,11 @@ class FloatingOverlayManager(
             view.visibility = View.VISIBLE
         }
 
-        if (needsLayoutUpdate) {
-            windowManager.updateViewLayout(view, params)
-        }
+        windowManager.updateViewLayout(view, params)
     }
 
     /**
-     * Hides the translation bubble when no English subtitles are on screen (Smart Auto-Sleep).
+     * Hides the translation bubble during silence or when paused.
      */
     fun hideBubble() {
         bubbleView?.visibility = View.GONE

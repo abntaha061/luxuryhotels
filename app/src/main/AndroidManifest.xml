@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Permissions for Internal Audio Capture, Network & Overlays -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -19,10 +21,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
 
-        <meta-data
-            android:name="com.google.mlkit.vision.DEPENDENCIES"
-            android:value="ocr" />
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -35,9 +33,9 @@
             </intent-filter>
         </activity>
 
-        <!-- Foreground Service for Screen Capture & Floating Overlays -->
+        <!-- Audio-Based Translation Foreground Service (AudioPlaybackCapture + ASR + ML Kit) -->
         <service
-            android:name=".service.ScreenTranslatorService"
+            android:name=".service.AudioCaptureService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />

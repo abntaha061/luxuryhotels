@@ -32,7 +32,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,25 +43,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ScreenShare
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -86,7 +83,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -95,7 +91,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.example.service.ScreenTranslatorService
+import com.example.service.AudioCaptureService
 import com.example.translation.MlKitSubtitleTranslator
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.DarkNavyBg
@@ -127,10 +123,10 @@ class MainActivity : ComponentActivity() {
                 MainScreen(
                     translator = translator,
                     onStartCapture = { resultCode, resultData ->
-                        startScreenTranslatorService(resultCode, resultData)
+                        startAudioCaptureService(resultCode, resultData)
                     },
                     onStopCapture = {
-                        stopScreenTranslatorService()
+                        stopAudioCaptureService()
                     },
                     onTogglePause = {
                         togglePauseService()
@@ -140,25 +136,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startScreenTranslatorService(resultCode: Int, resultData: Intent) {
-        val serviceIntent = Intent(this, ScreenTranslatorService::class.java).apply {
-            action = ScreenTranslatorService.ACTION_START
-            putExtra(ScreenTranslatorService.EXTRA_RESULT_CODE, resultCode)
-            putExtra(ScreenTranslatorService.EXTRA_RESULT_DATA, resultData)
+    private fun startAudioCaptureService(resultCode: Int, resultData: Intent) {
+        val serviceIntent = Intent(this, AudioCaptureService::class.java).apply {
+            action = AudioCaptureService.ACTION_START
+            putExtra(AudioCaptureService.EXTRA_RESULT_CODE, resultCode)
+            putExtra(AudioCaptureService.EXTRA_RESULT_DATA, resultData)
         }
         ContextCompat.startForegroundService(this, serviceIntent)
     }
 
-    private fun stopScreenTranslatorService() {
-        val serviceIntent = Intent(this, ScreenTranslatorService::class.java).apply {
-            action = ScreenTranslatorService.ACTION_STOP
+    private fun stopAudioCaptureService() {
+        val serviceIntent = Intent(this, AudioCaptureService::class.java).apply {
+            action = AudioCaptureService.ACTION_STOP
         }
         startService(serviceIntent)
     }
 
     private fun togglePauseService() {
-        val serviceIntent = Intent(this, ScreenTranslatorService::class.java).apply {
-            action = ScreenTranslatorService.ACTION_PAUSE_RESUME
+        val serviceIntent = Intent(this, AudioCaptureService::class.java).apply {
+            action = AudioCaptureService.ACTION_PAUSE_RESUME
         }
         startService(serviceIntent)
     }
@@ -180,14 +176,23 @@ fun MainScreen(
     val coroutineScope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Service observables
-    val isRunning by ScreenTranslatorService.isRunning.collectAsState()
-    val isPaused by ScreenTranslatorService.isPaused.collectAsState()
-    val lastEnglish by ScreenTranslatorService.lastEnglish.collectAsState()
-    val lastArabic by ScreenTranslatorService.lastArabic.collectAsState()
+    // AudioCaptureService observables
+    val isRunning by AudioCaptureService.isRunning.collectAsState()
+    val isPaused by AudioCaptureService.isPaused.collectAsState()
+    val lastEnglish by AudioCaptureService.lastEnglish.collectAsState()
+    val lastArabic by AudioCaptureService.lastArabic.collectAsState()
+    val audioLevel by AudioCaptureService.audioLevel.collectAsState()
 
     // Permissions state
     var hasOverlayPermission by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    var hasAudioPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
     var hasNotificationPermission by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -204,6 +209,10 @@ fun MainScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 hasOverlayPermission = Settings.canDrawOverlays(context)
+                hasAudioPermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     hasNotificationPermission = ContextCompat.checkSelfPermission(
                         context,
@@ -231,6 +240,13 @@ fun MainScreen(
         hasOverlayPermission = Settings.canDrawOverlays(context)
     }
 
+    // Audio Permission launcher
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasAudioPermission = isGranted
+    }
+
     // Notification Permission launcher (Android 13+)
     val notificationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -238,7 +254,7 @@ fun MainScreen(
         hasNotificationPermission = isGranted
     }
 
-    // MediaProjection screen capture launcher
+    // MediaProjection capture consent launcher
     val mediaProjectionManager = remember {
         context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
     }
@@ -249,12 +265,12 @@ fun MainScreen(
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             onStartCapture(result.resultCode, result.data!!)
         } else {
-            Toast.makeText(context, "Screen capture permission is required", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Audio capture permission is required", Toast.LENGTH_SHORT).show()
         }
     }
 
     // All prerequisites check
-    val canStart = hasOverlayPermission && hasNotificationPermission && isModelDownloaded
+    val canStart = hasOverlayPermission && hasAudioPermission && hasNotificationPermission && isModelDownloaded
     val shouldAutoStart = (context as? Activity)?.intent?.getBooleanExtra(MainActivity.EXTRA_AUTO_START, false) == true
 
     LaunchedEffect(canStart, shouldAutoStart, isRunning) {
@@ -294,6 +310,11 @@ fun MainScreen(
                             overlayLauncher.launch(intent)
                             return@HeroStatusCard
                         }
+                        if (!hasAudioPermission) {
+                            Toast.makeText(context, "Please allow Audio permission first", Toast.LENGTH_SHORT).show()
+                            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            return@HeroStatusCard
+                        }
                         if (!isModelDownloaded) {
                             Toast.makeText(context, "Please download the Arabic model first", Toast.LENGTH_SHORT).show()
                             return@HeroStatusCard
@@ -306,12 +327,13 @@ fun MainScreen(
                 )
             }
 
-            // Real-time Translation Live Preview (if running or sample)
+            // Real-time Translation Live Preview & Audio Level
             item {
                 LiveTranslationPreviewCard(
                     isRunning = isRunning,
                     lastEnglish = lastEnglish,
-                    lastArabic = lastArabic
+                    lastArabic = lastArabic,
+                    audioLevel = audioLevel
                 )
             }
 
@@ -340,6 +362,7 @@ fun MainScreen(
             item {
                 PermissionChecklistCard(
                     hasOverlay = hasOverlayPermission,
+                    hasAudio = hasAudioPermission,
                     hasNotification = hasNotificationPermission,
                     onRequestOverlay = {
                         val intent = Intent(
@@ -347,6 +370,9 @@ fun MainScreen(
                             Uri.parse("package:${context.packageName}")
                         )
                         overlayLauncher.launch(intent)
+                    },
+                    onRequestAudio = {
+                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     },
                     onRequestNotification = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -426,7 +452,7 @@ fun TopAppBarHeader(isRunning: Boolean, isPaused: Boolean) {
                         color = TextLight
                     )
                     Text(
-                        text = "Real-Time English to Arabic Subtitles",
+                        text = "Live Video Audio to Arabic Subtitles",
                         fontSize = 11.sp,
                         color = TextMuted
                     )
@@ -491,7 +517,7 @@ fun HeroStatusCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = if (isRunning) "Overlay Service Running" else "Ready to Translate",
+                text = if (isRunning) "Audio Translation Active" else "Ready to Translate",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextLight
@@ -499,9 +525,9 @@ fun HeroStatusCard(
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = if (isRunning)
-                    "Auto-tracking active: Scans the screen every 600ms, detects English subtitles, and positions the floating Arabic bubble directly underneath."
+                    "Capturing internal video playback audio, transcribing English speech, and displaying Arabic subtitles in the floating center-bottom bubble."
                 else
-                    "Auto-detects on-screen English subtitles and positions a sleek floating Arabic bubble directly below the text—no manual cropping box needed.",
+                    "Plays seamlessly over YouTube, Netflix, or media players. Captures internal audio via AudioPlaybackCapture, transcribing and translating speech into Arabic subtitles.",
                 fontSize = 13.sp,
                 color = TextMuted,
                 textAlign = TextAlign.Center
@@ -527,7 +553,7 @@ fun HeroStatusCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Start Auto-Tracking Translator",
+                        text = "Start Audio Subtitle Translator",
                         color = DarkNavyBg,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
@@ -593,7 +619,8 @@ fun HeroStatusCard(
 fun LiveTranslationPreviewCard(
     isRunning: Boolean,
     lastEnglish: String,
-    lastArabic: String
+    lastArabic: String,
+    audioLevel: Float
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -606,24 +633,57 @@ fun LiveTranslationPreviewCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Live Subtitle Monitor",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = SkyAccent
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.GraphicEq,
+                        contentDescription = "Audio Level",
+                        tint = CyanPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Live Audio & Subtitle Monitor",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SkyAccent
+                    )
+                }
                 if (isRunning) {
                     Text(
-                        text = "● Capturing every 650ms",
+                        text = "● Audio Capture Active",
                         fontSize = 11.sp,
                         color = StatusGreen
                     )
                 }
             }
 
+            if (isRunning) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Audio Activity:",
+                        fontSize = 11.sp,
+                        color = TextMuted,
+                        modifier = Modifier.width(85.dp)
+                    )
+                    LinearProgressIndicator(
+                        progress = { audioLevel },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = CyanPrimary,
+                        trackColor = Color(0xFF1E293B)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(10.dp))
 
-            // English recognized box
+            // English speech recognized box
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -631,13 +691,13 @@ fun LiveTranslationPreviewCard(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "Detected English Subtitle:",
+                    text = "Transcribed English Speech:",
                     fontSize = 11.sp,
                     color = TextMuted
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (lastEnglish.isNotBlank()) lastEnglish else if (isRunning) "Scanning cropped frame..." else "Service inactive",
+                    text = if (lastEnglish.isNotBlank()) lastEnglish else if (isRunning) "Listening to video speech..." else "Service inactive",
                     fontSize = 14.sp,
                     fontStyle = FontStyle.Italic,
                     color = if (lastEnglish.isNotBlank()) TextLight else TextMuted
@@ -654,13 +714,13 @@ fun LiveTranslationPreviewCard(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "Arabic Translation (الترجمة العربية):",
+                    text = "Arabic Translation (الترجمة الفورية):",
                     fontSize = 11.sp,
                     color = CyanPrimary
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (lastArabic.isNotBlank()) lastArabic else if (isRunning) "في انتظار التعرف على الترجمة..." else "غير نشط",
+                    text = if (lastArabic.isNotBlank()) lastArabic else if (isRunning) "في انتظار الكلام الإنجليزي..." else "غير نشط",
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -770,8 +830,10 @@ fun ModelDownloadCard(
 @Composable
 fun PermissionChecklistCard(
     hasOverlay: Boolean,
+    hasAudio: Boolean,
     hasNotification: Boolean,
     onRequestOverlay: () -> Unit,
+    onRequestAudio: () -> Unit,
     onRequestNotification: () -> Unit
 ) {
     Card(
@@ -791,7 +853,7 @@ fun PermissionChecklistCard(
             // 1. Overlay Permission
             PermissionItem(
                 title = "Display Over Other Apps (Overlay)",
-                description = "Enables floating capture frame and Arabic subtitle overlay window",
+                description = "Enables floating pass-through Arabic subtitle bubble",
                 isGranted = hasOverlay,
                 icon = Icons.Default.Layers,
                 onRequest = onRequestOverlay
@@ -802,10 +864,24 @@ fun PermissionChecklistCard(
                 modifier = Modifier.padding(vertical = 10.dp)
             )
 
-            // 2. Notification Permission
+            // 2. Audio Permission
+            PermissionItem(
+                title = "Internal Audio & Speech Capture",
+                description = "Allows capturing media playback audio and transcribing speech",
+                isGranted = hasAudio,
+                icon = Icons.Default.Mic,
+                onRequest = onRequestAudio
+            )
+
+            HorizontalDivider(
+                color = Color(0xFF1E293B),
+                modifier = Modifier.padding(vertical = 10.dp)
+            )
+
+            // 3. Notification Permission
             PermissionItem(
                 title = "Foreground Notification",
-                description = "Keeps translation service active while you watch videos",
+                description = "Keeps audio translation service active while you watch videos",
                 isGranted = hasNotification,
                 icon = Icons.Default.Notifications,
                 onRequest = onRequestNotification
@@ -816,27 +892,27 @@ fun PermissionChecklistCard(
                 modifier = Modifier.padding(vertical = 10.dp)
             )
 
-            // 3. Screen Capture Info
+            // 4. MediaProjection Audio Capture Info
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = Icons.Default.ScreenShare,
-                    contentDescription = "Screen Capture",
+                    contentDescription = "Audio Playback Capture",
                     tint = CyanPrimary,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Screen Capture (MediaProjection)",
+                        text = "Audio Playback Capture (MediaProjection)",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextLight
                     )
                     Text(
-                        text = "Requested automatically when you tap 'Start Floating Translator'",
+                        text = "Requested automatically when you tap 'Start Audio Subtitle Translator'",
                         fontSize = 11.sp,
                         color = TextMuted
                     )
@@ -946,13 +1022,13 @@ fun SubtitleSimulatorCard() {
             ) {
                 Column {
                     Text(
-                        text = "Built-in Subtitle Test Simulator",
+                        text = "Built-in Dialogue Test Simulator",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = CyanPrimary
                     )
                     Text(
-                        text = "Simulates movie player dialogue so you can test overlays here",
+                        text = "Simulates movie dialogue so you can test audio & subtitles here",
                         fontSize = 11.sp,
                         color = TextMuted
                     )
@@ -988,9 +1064,8 @@ fun SubtitleSimulatorCard() {
                     .padding(12.dp),
                 contentAlignment = Alignment.BottomCenter
             ) {
-                // Background cinematic watermark
                 Text(
-                    text = "CINEMATIC PLAYER PREVIEW",
+                    text = "CINEMATIC PLAYER AUDIO SIMULATOR",
                     fontSize = 11.sp,
                     color = Color(0xFF334155),
                     fontWeight = FontWeight.Bold,
@@ -1007,7 +1082,7 @@ fun SubtitleSimulatorCard() {
                 ) {
                     Text(
                         text = sampleSubtitles[currentSubtitleIndex],
-                        color = Color(0xFFFFFF00), // Classic yellow video subtitle font
+                        color = Color(0xFFFFFF00),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
@@ -1017,7 +1092,7 @@ fun SubtitleSimulatorCard() {
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Tip: When started, SubTranslate automatically detects the subtitle line above and floats the Arabic translation directly beneath it!",
+                text = "Tip: When SubTranslate is running, the translation bubble appears centered at the bottom of the screen with touch pass-through!",
                 fontSize = 11.sp,
                 color = SkyAccent,
                 fontStyle = FontStyle.Italic
@@ -1070,11 +1145,11 @@ fun GuideCard() {
 
             AnimatedVisibility(visible = isExpanded) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
-                    GuideStep(number = "1", title = "Grant Permissions", desc = "Allow Overlay and Screen Recording.")
+                    GuideStep(number = "1", title = "Grant Permissions", desc = "Allow Overlay, Audio Recording, and Foreground Notifications.")
                     GuideStep(number = "2", title = "Download Model", desc = "Download the offline Google ML Kit model (~30MB) once.")
-                    GuideStep(number = "3", title = "Tap Start Auto-Tracking", desc = "Tap Start to launch the service and floating edge widget.")
-                    GuideStep(number = "4", title = "Play Any Video", desc = "Open YouTube, Netflix, or media player. The Arabic translation bubble appears automatically right under each dialogue line!")
-                    GuideStep(number = "5", title = "Edge Widget", desc = "Use the tiny draggable icon on the screen edge to pause or close anytime.")
+                    GuideStep(number = "3", title = "Tap Start Translator", desc = "Tap Start to launch the foreground audio translation service.")
+                    GuideStep(number = "4", title = "Play Any Video", desc = "Open YouTube, Netflix, or media player. English speech is transcribed and translated directly to Arabic at the bottom center of the screen!")
+                    GuideStep(number = "5", title = "Floating Edge Widget", desc = "Use the tiny draggable icon on the screen edge to pause or close anytime.")
                 }
             }
         }
@@ -1154,4 +1229,3 @@ fun QuickSettingsTileCard() {
         }
     }
 }
-
