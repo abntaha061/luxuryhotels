@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/captureBoxRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_capture_box"
+    android:padding="4dp">
+
+    <!-- Top header bar for dragging and status info -->
+    <LinearLayout
+        android:id="@+id/captureBoxHeader"
+        android:layout_width="match_parent"
+        android:layout_height="28dp"
+        android:layout_gravity="top"
+        android:background="#990F172A"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="6dp">
+
+        <ImageView
+            android:id="@+id/ivCaptureDrag"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_drag_handle" />
+
+        <TextView
+            android:id="@+id/tvCaptureTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:text="Subtitle Target Box"
+            android:textColor="#38BDF8"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvCaptureDims"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:text="720 x 140"
+            android:textColor="#94A3B8"
+            android:textSize="10sp" />
+
+        <ImageView
+            android:id="@+id/ivCaptureLock"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_lock_open" />
+    </LinearLayout>
+
+    <!-- Center instruction watermark -->
+    <TextView
+        android:id="@+id/tvCenterHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="Position over English Subtitles"
+        android:textColor="#6638BDF8"
+        android:textSize="12sp"
+        android:textStyle="italic" />
+
+    <!-- Resize handle at bottom-right corner -->
+    <FrameLayout
+        android:id="@+id/btnResizeHandle"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom|end"
+        android:background="@drawable/bg_resize_handle"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_resize" />
+    </FrameLayout>
+
+</FrameLayout>

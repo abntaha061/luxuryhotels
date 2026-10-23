@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/controllerRoot"
+    android:layout_width="wrap_content"
+    android:layout_height="48dp"
+    android:background="@drawable/bg_controller_pill"
+    android:elevation="8dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="10dp">
+
+    <!-- Drag grip -->
+    <ImageView
+        android:id="@+id/ivControllerDrag"
+        android:layout_width="20dp"
+        android:layout_height="24dp"
+        android:contentDescription="@string/app_name"
+        android:src="@drawable/ic_drag_handle" />
+
+    <!-- Active status indicator dot -->
+    <View
+        android:id="@+id/viewStatusDot"
+        android:layout_width="10dp"
+        android:layout_height="10dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_resize_handle" />
+
+    <!-- Play/Pause continuous translation toggle button -->
+    <ImageButton
+        android:id="@+id/btnTogglePause"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_pill_item"
+        android:contentDescription="@string/app_name"
+        android:padding="8dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_pause" />
+
+    <!-- Lock/Unlock capture box position button -->
+    <ImageButton
+        android:id="@+id/btnToggleLock"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="6dp"
+        android:background="@drawable/bg_pill_item"
+        android:contentDescription="@string/app_name"
+        android:padding="8dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_lock_open" />
+
+    <!-- Toggle Capture Box outline visibility -->
+    <ImageButton
+        android:id="@+id/btnToggleBoxVisibility"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="6dp"
+        android:background="@drawable/bg_pill_item"
+        android:contentDescription="@string/app_name"
+        android:padding="8dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_visibility" />
+
+    <!-- Stop Service / Close Floating UI button -->
+    <ImageButton
+        android:id="@+id/btnCloseService"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="6dp"
+        android:background="@drawable/bg_pill_item"
+        android:contentDescription="@string/app_name"
+        android:padding="9dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_close" />
+
+</LinearLayout>

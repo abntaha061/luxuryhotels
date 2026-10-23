@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">SubTranslate</string>
+    <string name="tile_name">SubTranslate</string>
+    <string name="tile_description">Toggle real-time video subtitle translation</string>
+</resources>

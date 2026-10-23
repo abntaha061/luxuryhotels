@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/subtitleRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_subtitle_overlay"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- Header bar with drag handle and subtitle actions -->
+    <LinearLayout
+        android:id="@+id/subtitleHeader"
+        android:layout_width="match_parent"
+        android:layout_height="26dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="4dp">
+
+        <ImageView
+            android:id="@+id/ivSubtitleDrag"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_drag_handle" />
+
+        <TextView
+            android:id="@+id/tvSubtitleStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:text="Arabic Subtitle"
+            android:textColor="#38BDF8"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <!-- Font Size Decrease -->
+        <TextView
+            android:id="@+id/btnFontDecrease"
+            android:layout_width="26dp"
+            android:layout_height="22dp"
+            android:gravity="center"
+            android:text="A-"
+            android:textColor="#E2E8F0"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_pill_item" />
+
+        <!-- Font Size Increase -->
+        <TextView
+            android:id="@+id/btnFontIncrease"
+            android:layout_width="26dp"
+            android:layout_height="22dp"
+            android:layout_marginStart="4dp"
+            android:gravity="center"
+            android:text="A+"
+            android:textColor="#E2E8F0"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_pill_item" />
+
+        <!-- Copy translated text -->
+        <ImageView
+            android:id="@+id/btnCopySubtitle"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_marginStart="6dp"
+            android:contentDescription="@string/app_name"
+            android:padding="2dp"
+            android:src="@drawable/ic_copy" />
+
+        <!-- Clear / minimize subtitle view -->
+        <ImageView
+            android:id="@+id/btnCloseSubtitle"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="6dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_close" />
+    </LinearLayout>
+
+    <!-- Translated Arabic Subtitle Text -->
+    <TextView
+        android:id="@+id/tvArabicSubtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="2dp"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:shadowColor="#FF000000"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="6"
+        android:text="في انتظار الترجمة..."
+        android:textAlignment="center"
+        android:textColor="#FFFFFF"
+        android:textDirection="rtl"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <!-- English original recognized text preview -->
+    <TextView
+        android:id="@+id/tvEnglishOriginal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="[Waiting for English subtitle...]"
+        android:textColor="#94A3B8"
+        android:textSize="12sp"
+        android:textStyle="italic" />
+
+</LinearLayout>

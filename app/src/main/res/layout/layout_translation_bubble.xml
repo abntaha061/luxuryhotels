@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/translationBubbleRoot"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_translation_bubble"
+    android:elevation="10dp"
+    android:gravity="center"
+    android:maxWidth="360dp"
+    android:orientation="vertical">
+
+    <!-- Arabic translated text positioned dynamically below the English subtitle -->
+    <TextView
+        android:id="@+id/tvArabicSubtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:lineSpacingExtra="3dp"
+        android:shadowColor="#FF000000"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="5"
+        android:text="الترجمة الفورية"
+        android:textAlignment="center"
+        android:textColor="#FFFFFF"
+        android:textDirection="rtl"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <!-- English detected text preview (smaller subtitle caption) -->
+    <TextView
+        android:id="@+id/tvEnglishOriginal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:gravity="center"
+        android:text="Detected English subtitle"
+        android:textColor="#94A3B8"
+        android:textSize="11sp"
+        android:textStyle="italic" />
+
+</LinearLayout>

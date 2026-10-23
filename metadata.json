@@ -1,0 +1,6 @@
+{
+  "name": "SubTranslate",
+  "description": "Real-time on-screen English to Arabic subtitle translator using MediaProjection, ML Kit OCR, and floating overlay controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

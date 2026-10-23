@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/controlWidgetRoot"
+    android:layout_width="wrap_content"
+    android:layout_height="40dp"
+    android:background="@drawable/bg_control_widget"
+    android:elevation="12dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="6dp">
+
+    <!-- Draggable grip -->
+    <ImageView
+        android:id="@+id/ivControlDrag"
+        android:layout_width="16dp"
+        android:layout_height="20dp"
+        android:contentDescription="@string/app_name"
+        android:src="@drawable/ic_drag_handle" />
+
+    <!-- Active status indicator dot -->
+    <View
+        android:id="@+id/viewControlStatusDot"
+        android:layout_width="8dp"
+        android:layout_height="8dp"
+        android:layout_marginStart="6dp"
+        android:background="@drawable/bg_resize_handle" />
+
+    <!-- Pause/Resume button -->
+    <ImageButton
+        android:id="@+id/btnControlPause"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="6dp"
+        android:background="@drawable/bg_pill_item"
+        android:contentDescription="@string/app_name"
+        android:padding="6dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_pause" />
+
+    <!-- Visibility toggle button -->
+    <ImageButton
+        android:id="@+id/btnControlVisibility"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="4dp"
+        android:background="@drawable/bg_pill_item"
+        android:contentDescription="@string/app_name"
+        android:padding="6dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_visibility" />
+
+    <!-- Close/Exit button -->
+    <ImageButton
+        android:id="@+id/btnControlClose"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="4dp"
+        android:background="@drawable/bg_pill_item"
+        android:contentDescription="@string/app_name"
+        android:padding="7dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_close" />
+
+</LinearLayout>
